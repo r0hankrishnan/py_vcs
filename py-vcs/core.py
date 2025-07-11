@@ -1,12 +1,23 @@
 import os
 import hashlib
 import pickle
+import datetime
+import json
 
 def init_vcs():
     os.makedirs('.vcs_storage', exist_ok = True)
+    try:
+        with open('.vcs_storage/vcs_log.txt', 'w') as f:
+            pass
+    except FileExistsError:
+        print("Log already initialized")
+        
     print("VCS Initialized")
     
 def snapshot(directory):
+    # Get commit message
+    message = input("Write a snapshot message or hit enter to skip. ")
+    
     # Create a SHA-256 object to compute directory's unique hash
     snapshot_hash = hashlib.sha256()
     # Create dict to hold snapshot data with a sub dictionary to hold file contents
@@ -38,15 +49,31 @@ def snapshot(directory):
     # Save the list of files from the snapshot by accessing the keys of the 
     # 'files' dict (which is the file_path for each file we iterated over in the nested for loop)
     snapshot_data['file_list'] = list(snapshot_data['files'].keys())
+    
+    snapshot_log = snapshot_data
+    snapshot_log['files_txt'] = {}
+    for key, value in snapshot_log['files'].items():
+        snapshot_log['files_txt'][key] = value.decode('utf-8')
+        
+    log_keys = ['files_txt', 'files_list']
+    snapshot_log_final = {key: snapshot_log[key] for key in log_keys if key in snapshot_log}
+    snapshot_log_final['message'] = message
+    
+    with open('.vcs_storage/vcs_log.txt', 'a') as f:
+        
+        f.write(f'Snapshot Time Stamp: {datetime.datetime.now()}\n')
+        f.write(json.dumps(snapshot_log_final, indent=4))
+        f.write("\n\n")
+                    
     # Save the snapshot data as a pickle file (I think these files are small and can hold a lot 
     # of info? Need to read more about why we use these) and name the file with it's generated hash.
     # Naming it by its hash allows us to easily compare it with other snapshots and see if they are 
     # different at all
     with open(f'.vcs_storage/{hash_digest}', 'wb') as f:
         pickle.dump(snapshot_data, f)
-        
+
     # Print confirmation with the hash
-    print(f"Snapshot created with hash {hash_digest}")
+    print(f"Snapshot created with hash {hash_digest} \nTimestamp: {datetime.datetime.now()}")
     
 ### REVERTING TO A SNAPSHOT
 # To revert to a snapshot, we have to load the pickled data, restore each files content 
@@ -104,6 +131,7 @@ def revert_to_snapshot(hash_digest):
         
     #Confirmation of successfully reverting to snapshot
     print(f"Reverted to snapshot {hash_digest}")
+    
     
 if __name__ == "__main__":
     import sys
